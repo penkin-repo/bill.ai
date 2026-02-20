@@ -1,0 +1,16 @@
+export {
+  ConvertXlsxToPDF,
+  CountInvoices,
+  DeleteInvoice,
+  ForceDownloadFromGoogle,
+  ForceUploadToGoogle,
+  GenerateInvoice,
+  GetAllProducts,
+  GetLastSyncTime,
+  GetMyCompanyInvoiceTemplates,
+  GetNextInvoiceNumber,
+  SearchClients,
+  SearchInvoices,
+  SearchProducts,
+  UpsertInvoice,
+} from '../../wailsjs/go/main/App';
