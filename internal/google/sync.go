@@ -677,6 +677,14 @@ func (s *SyncService) ForceDownloadFromGoogle(sheetID, serviceKey string) error 
 		return err
 	}
 
+	// Clear dependent local tables first to avoid FK constraint failures.
+	if err := s.db.ClearInvoices(); err != nil {
+		return fmt.Errorf("clear local invoices: %w", err)
+	}
+	if err := s.db.ClearTemplateBindings(); err != nil {
+		return fmt.Errorf("clear local template bindings: %w", err)
+	}
+
 	// Clients
 	if err := s.db.ClearClients(); err != nil {
 		return fmt.Errorf("clear local clients: %w", err)
@@ -722,9 +730,6 @@ func (s *SyncService) ForceDownloadFromGoogle(sheetID, serviceKey string) error 
 	}
 
 	// Invoices
-	if err := s.db.ClearInvoices(); err != nil {
-		return fmt.Errorf("clear local invoices: %w", err)
-	}
 	h, dataRows, err = readSheetWithHeaders(sc, sheetID, "Invoices")
 	if err != nil {
 		return fmt.Errorf("read Google Invoices: %w", err)
@@ -795,6 +800,33 @@ func (s *SyncService) UploadClient(sheetID, serviceKey string, c models.Client) 
 	return sc.AppendRow(sheetID, "Clients", clientToRow(c))
 }
 
+func (s *SyncService) DeleteClient(sheetID, serviceKey, clientID string) error {
+	sc, err := NewSheetsClient(serviceKey)
+	if err != nil {
+		return err
+	}
+	h, dataRows, err := readSheetWithHeaders(sc, sheetID, "Clients")
+	if err != nil {
+		return err
+	}
+	if h == nil {
+		return nil
+	}
+	idCol, ok := h["id"]
+	if !ok {
+		return fmt.Errorf("Clients sheet must contain 'id' header")
+	}
+	want := strings.TrimSpace(clientID)
+	for i, row := range dataRows {
+		if strings.TrimSpace(cellString(row, idCol)) != want {
+			continue
+		}
+		rowNumber := i + 2
+		return sc.ClearRange(sheetID, fmt.Sprintf("Clients!A%d:ZZ%d", rowNumber, rowNumber))
+	}
+	return nil
+}
+
 func (s *SyncService) UploadMyCompany(sheetID, serviceKey string, c models.MyCompany) error {
 	sc, err := NewSheetsClient(serviceKey)
 	if err != nil {
@@ -824,6 +856,33 @@ func (s *SyncService) UploadMyCompany(sheetID, serviceKey string, c models.MyCom
 	}
 
 	return sc.AppendRow(sheetID, "MyCompanies", companyToRow(c))
+}
+
+func (s *SyncService) DeleteMyCompany(sheetID, serviceKey, companyID string) error {
+	sc, err := NewSheetsClient(serviceKey)
+	if err != nil {
+		return err
+	}
+	h, dataRows, err := readSheetWithHeaders(sc, sheetID, "MyCompanies")
+	if err != nil {
+		return err
+	}
+	if h == nil {
+		return nil
+	}
+	idCol, ok := h["id"]
+	if !ok {
+		return fmt.Errorf("MyCompanies sheet must contain 'id' header")
+	}
+	want := strings.TrimSpace(companyID)
+	for i, row := range dataRows {
+		if strings.TrimSpace(cellString(row, idCol)) != want {
+			continue
+		}
+		rowNumber := i + 2
+		return sc.ClearRange(sheetID, fmt.Sprintf("MyCompanies!A%d:ZZ%d", rowNumber, rowNumber))
+	}
+	return nil
 }
 
 func (s *SyncService) UploadInvoice(sheetID, serviceKey string, inv models.Invoice) error {

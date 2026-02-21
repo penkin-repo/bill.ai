@@ -1,12 +1,12 @@
 
 # Project Status: bill.ai
 
-**Last Updated:** 2026-02-20 10:23 (UTC+03:00)
+**Last Updated:** 2026-02-20 15:34 (UTC+03:00)
 **Current Phase:** Phase 5 — Local-first синхронизация + AI улучшения
 
 ## 🚀 Active Context
-* **Current Task:** В таблице реестра счетов скрыты лишние колонки "НДС" и "Позиций"
-* **Next Step:** По запросу — убрать/переупаковать дополнительные метрики из блока Stats (если тоже не нужны в интерфейсе)
+* **Current Task:** Добавлены удаление компании в разделе "Мои компании" и фикс FK-падения при ручной загрузке из Google (Clients/MyCompanies)
+* **Next Step:** По желанию — добавить дружелюбную подсказку, если удаление клиента/компании блокируется связанными счетами (вместо raw SQL ошибки)
 
 ## 🛠 Tech Stack & Versions
 * **Go:** Wails v2
@@ -175,6 +175,21 @@
 * [2026-02-20] Invoices Registry UI: из таблицы удалены колонки "НДС" и "Позиций"; таблица оставлена в формате №/Дата/От кого/Покупатель/Сумма/Действия
 * [2026-02-20] Invoices Registry UI: обновлены `colSpan` в states loading/empty с 8 до 6 после удаления двух колонок
 * [2026-02-20] Проверка после table-columns-шага: `pnpm --dir frontend build` (OK)
+* [2026-02-20] Stability/SQLite: `internal/database/database.go` — добавлены DB-конфиги `SetMaxOpenConns(1)`, `SetMaxIdleConns(1)` + PRAGMA `journal_mode=WAL`, `busy_timeout=5000`, `synchronous=NORMAL`, `foreign_keys=ON` для снижения `database is locked/busy` в desktop build
+* [2026-02-20] Stability/Settings: `internal/database/settings.go` — `GetSetting`/`SetSetting` переведены на retry (до 3 попыток) при `SQLITE_BUSY/database is locked`
+* [2026-02-20] Settings UX: `SettingsPage` сохранение Google-настроек переведено с `Promise.all` на последовательные `await SetSetting(...)`, чтобы убрать параллельные записи в SQLite
+* [2026-02-20] AI model source: `frontend/src/services/aiService.ts` удалён хардкод fallback `google/gemini-flash-1.5`; теперь берётся `ai_model`, иначе первый ID из `ai_models`, иначе явная ошибка "AI модель не выбрана"
+* [2026-02-20] App defaults: `AppContext` убран дефолт `gemini` для `settings.aiModel` (теперь пустая строка), чтобы UI отражал реальную сохранённую настройку
+* [2026-02-20] Проверка после sqlite+ai-fix-шага: `pnpm --dir frontend build` (OK), `go build ./...` (OK)
+* [2026-02-20] Clients UI: в `ClientsPage` добавлена кнопка удаления (иконка Trash) в колонке действий + состояние `deletingClientId` для блокировки повторного клика
+* [2026-02-20] Clients backend: добавлен `DeleteClient` в `internal/database/clients.go` и exposed-метод `App.DeleteClient` в `app.go`
+* [2026-02-20] Google sync: добавлен `SyncService.DeleteClient` (очистка строки в листе `Clients` по `id`) и вызов из `App.DeleteClient` при настроенной синхронизации
+* [2026-02-20] Проверка после delete-client-шага: `go build ./...` (OK), `pnpm --dir frontend build` (OK)
+* [2026-02-20] Companies UI: в `CompaniesPage` добавлена кнопка удаления компании (иконка Trash) + состояние `deletingCompanyId` и confirm-диалог
+* [2026-02-20] Companies backend: добавлены `DeleteMyCompany` (DB + App) и `SyncService.DeleteMyCompany` для удаления строки в листе `MyCompanies` по `id`
+* [2026-02-20] FK fix (force download): `SyncService.ForceDownloadFromGoogle` теперь сначала очищает зависимые таблицы (`invoices` + template bindings), и только потом `clients/my_companies` — устранена ошибка `clear local clients: FOREIGN KEY constraint failed (787)`
+* [2026-02-20] FK fix (bindings): добавлены методы `ClearTemplateBindings`, `RemoveMyCompanyTemplateBindings`, `RemoveClientTemplateBindings` для безопасной очистки/удаления связей
+* [2026-02-20] Проверка после companies-delete+fk-fix-шага: `go build ./...` (OK), `pnpm --dir frontend build` (OK)
 
 ## 📂 Key Files Map
 * `app.go` — Wails App: startup, loadProductsJSON (portable→embedded fallback), все exposed методы

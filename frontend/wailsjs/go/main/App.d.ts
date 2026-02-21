@@ -6,9 +6,13 @@ export function ConvertXlsxToPDF(arg1:string):Promise<string>;
 
 export function CountInvoices(arg1:string):Promise<number>;
 
+export function DeleteClient(arg1:string):Promise<void>;
+
 export function DeleteInvoice(arg1:string):Promise<void>;
 
 export function DeleteInvoiceTemplate(arg1:string):Promise<void>;
+
+export function DeleteMyCompany(arg1:string):Promise<void>;
 
 export function DeleteProduct(arg1:string):Promise<void>;
 

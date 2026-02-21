@@ -313,6 +313,28 @@ func (a *App) UpsertCompany(company models.MyCompany) error {
 	return nil
 }
 
+func (a *App) DeleteMyCompany(id string) error {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return fmt.Errorf("company id is empty")
+	}
+
+	if err := a.db.RemoveMyCompanyTemplateBindings(id); err != nil {
+		return err
+	}
+	if err := a.db.DeleteMyCompany(id); err != nil {
+		return err
+	}
+
+	sheetID, _ := a.db.GetSetting("google_sheet_id")
+	serviceKey, _ := a.db.GetSetting("google_service_key")
+	if sheetID != "" && serviceKey != "" {
+		_ = a.sync.DeleteMyCompany(sheetID, serviceKey, id)
+	}
+
+	return nil
+}
+
 // UploadInvoiceToGoogleOnly uploads invoice to Google Sheets but does not save it locally.
 // The invoice will appear in local registry only after download/sync from Google.
 func (a *App) UploadInvoiceToGoogleOnly(inv models.Invoice) error {
@@ -509,6 +531,28 @@ func (a *App) UpsertClient(client models.Client) error {
 	serviceKey, _ := a.db.GetSetting("google_service_key")
 	if sheetID != "" && serviceKey != "" {
 		_ = a.sync.UploadClient(sheetID, serviceKey, client)
+	}
+
+	return nil
+}
+
+func (a *App) DeleteClient(id string) error {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return fmt.Errorf("client id is empty")
+	}
+
+	if err := a.db.RemoveClientTemplateBindings(id); err != nil {
+		return err
+	}
+	if err := a.db.DeleteClient(id); err != nil {
+		return err
+	}
+
+	sheetID, _ := a.db.GetSetting("google_sheet_id")
+	serviceKey, _ := a.db.GetSetting("google_service_key")
+	if sheetID != "" && serviceKey != "" {
+		_ = a.sync.DeleteClient(sheetID, serviceKey, id)
 	}
 
 	return nil

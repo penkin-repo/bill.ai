@@ -32,7 +32,7 @@ const AppContext = createContext<AppState>({
   companies: [],
   settings: {
     openrouterApiKey: '',
-    aiModel: 'google/gemini-flash-1.5',
+    aiModel: '',
     googleSheetId: '',
     googleServiceKey: '',
   },
@@ -65,7 +65,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [lastSyncText, setLastSyncText] = useState<string>('-');
   const [settings, setSettings] = useState<AppState['settings']>({
     openrouterApiKey: '',
-    aiModel: 'google/gemini-flash-1.5',
+    aiModel: '',
     googleSheetId: '',
     googleServiceKey: '',
   });
@@ -82,7 +82,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ]);
       setSettings({
         openrouterApiKey: k || '',
-        aiModel: m || 'google/gemini-flash-1.5',
+        aiModel: m || '',
         googleSheetId: sid || '',
         googleServiceKey: sk || '',
       });

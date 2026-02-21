@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"strings"
 
 	"bill.ai/internal/models"
 )
@@ -56,4 +57,12 @@ func (d *DB) GetAllMyCompanies() ([]models.MyCompany, error) {
 	}
 
 	return out, nil
+}
+
+func (d *DB) DeleteMyCompany(id string) error {
+	if d == nil || d.sql == nil {
+		return fmt.Errorf("db is nil")
+	}
+	_, err := d.sql.Exec(`DELETE FROM my_companies WHERE id = ?`, strings.TrimSpace(id))
+	return err
 }

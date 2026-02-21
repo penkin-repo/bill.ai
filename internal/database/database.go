@@ -19,6 +19,16 @@ func New(dbPath string) *DB {
 		panic(err)
 	}
 
+	// SQLite works more reliably in desktop apps with a single writer connection.
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+
+	// Best-effort pragmas to reduce "database is locked/busy" under concurrent UI calls.
+	_, _ = db.Exec(`PRAGMA journal_mode = WAL;`)
+	_, _ = db.Exec(`PRAGMA synchronous = NORMAL;`)
+	_, _ = db.Exec(`PRAGMA busy_timeout = 5000;`)
+	_, _ = db.Exec(`PRAGMA foreign_keys = ON;`)
+
 	return &DB{sql: db}
 }
 

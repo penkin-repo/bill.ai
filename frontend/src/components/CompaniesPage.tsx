@@ -55,6 +55,7 @@ export function CompaniesPage() {
   const [editing, setEditing] = useState<models.MyCompany | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deletingCompanyId, setDeletingCompanyId] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [forceUploading, setForceUploading] = useState(false);
   const [forceDownloading, setForceDownloading] = useState(false);
@@ -106,6 +107,33 @@ export function CompaniesPage() {
       setCompanyTemplates([]);
     } finally {
       setTemplatesLoading(false);
+    }
+  }
+
+  async function handleDeleteCompany(company: models.MyCompany) {
+    const id = (company?.id || '').trim();
+    if (!id) return;
+    const title = company.short_name || company.name || id;
+    if (!confirm(`Удалить компанию "${title}"?`)) return;
+
+    const a = api();
+    if (!a) {
+      pushToast('Backend недоступен (нет window.go). Запускайте через wails dev.', 'error');
+      return;
+    }
+
+    setDeletingCompanyId(id);
+    try {
+      await a.DeleteMyCompany(id);
+      await refreshData();
+      if (templatesCompany?.id === id) {
+        setTemplatesCompany(null);
+        setCompanyTemplates([]);
+      }
+    } catch (e: any) {
+      pushToast(e?.message ?? String(e), 'error');
+    } finally {
+      setDeletingCompanyId(null);
     }
   }
 
@@ -430,6 +458,14 @@ export function CompaniesPage() {
                     className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
                   >
                     <Edit className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => { void handleDeleteCompany(company); }}
+                    disabled={deletingCompanyId === company.id}
+                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
+                    title="Удалить компанию"
+                  >
+                    <Trash2 className={`w-4 h-4 ${deletingCompanyId === company.id ? 'animate-pulse' : ''}`} />
                   </button>
                 </div>
               </div>

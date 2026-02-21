@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Plus, Search, Edit, X, Save, RefreshCw, Users, Eye, Upload, Download, ShieldAlert } from 'lucide-react';
+import { Plus, Search, Edit, X, Save, RefreshCw, Users, Eye, Upload, Download, ShieldAlert, Trash2 } from 'lucide-react';
 import { models } from '../../wailsjs/go/models';
 
 function api() {
@@ -24,6 +24,7 @@ export function ClientsPage() {
   const [lastSync, setLastSync] = useState<string>('');
   const [syncing, setSyncing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
   const [forceUploading, setForceUploading] = useState(false);
   const [forceDownloading, setForceDownloading] = useState(false);
 
@@ -111,6 +112,30 @@ export function ClientsPage() {
       alert(e?.message ?? String(e));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDeleteClient(client: models.Client) {
+    const id = (client?.id || '').trim();
+    if (!id) return;
+    const title = client.name || id;
+    if (!confirm(`Удалить клиента "${title}"?`)) return;
+
+    const a = api();
+    if (!a) {
+      alert('Backend недоступен (нет window.go). Запускайте через wails dev.');
+      return;
+    }
+
+    setDeletingClientId(id);
+    try {
+      await a.DeleteClient(id);
+      await refreshData();
+      if (viewClient?.id === id) setViewClient(null);
+    } catch (e: any) {
+      alert(e?.message ?? String(e));
+    } finally {
+      setDeletingClientId(null);
     }
   }
 
@@ -299,7 +324,7 @@ export function ClientsPage() {
                 <th className="px-4 py-3">ИНН</th>
                 <th className="px-4 py-3">КПП</th>
                 <th className="px-4 py-3">Контакт</th>
-                <th className="px-4 py-3 w-28">Действия</th>
+                <th className="px-4 py-3 w-36">Действия</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -319,6 +344,14 @@ export function ClientsPage() {
                       <button onClick={() => { setEditing({ ...client }); setShowForm(true); }}
                         className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Редактировать">
                         <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => { void handleDeleteClient(client); }}
+                        disabled={deletingClientId === client.id}
+                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
+                        title="Удалить"
+                      >
+                        <Trash2 className={`w-4 h-4 ${deletingClientId === client.id ? 'animate-pulse' : ''}`} />
                       </button>
                     </div>
                   </td>

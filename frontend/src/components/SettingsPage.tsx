@@ -134,19 +134,20 @@ export function SettingsPage() {
       .catch((e: any) => pushToast(e?.message ?? String(e), 'error'));
   }
 
-  function handleSaveGoogle() {
+  async function handleSaveGoogle() {
     const a = api();
     if (!a) {
       pushToast('Backend недоступен (нет window.go). Запускайте через wails dev.', 'error');
       return;
     }
-    Promise.all([
-      a.SetSetting('google_sheet_id', googleSheetId),
-      a.SetSetting('google_service_key', googleServiceKey),
-    ]).then(() => {
+    try {
+      await a.SetSetting('google_sheet_id', googleSheetId);
+      await a.SetSetting('google_service_key', googleServiceKey);
       void refreshSettings();
       setGoogleSaved(true); setTimeout(() => setGoogleSaved(false), 2000);
-    }).catch((e: any) => pushToast(e?.message ?? String(e), 'error'));
+    } catch (e: any) {
+      pushToast(e?.message ?? String(e), 'error');
+    }
   }
 
   async function handleSyncAll() {

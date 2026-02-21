@@ -10,12 +10,20 @@ export function CountInvoices(arg1) {
   return window['go']['main']['App']['CountInvoices'](arg1);
 }
 
+export function DeleteClient(arg1) {
+  return window['go']['main']['App']['DeleteClient'](arg1);
+}
+
 export function DeleteInvoice(arg1) {
   return window['go']['main']['App']['DeleteInvoice'](arg1);
 }
 
 export function DeleteInvoiceTemplate(arg1) {
   return window['go']['main']['App']['DeleteInvoiceTemplate'](arg1);
+}
+
+export function DeleteMyCompany(arg1) {
+  return window['go']['main']['App']['DeleteMyCompany'](arg1);
 }
 
 export function DeleteProduct(arg1) {

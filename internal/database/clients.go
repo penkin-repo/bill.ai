@@ -55,6 +55,14 @@ func (d *DB) GetAllClients() ([]models.Client, error) {
 	return res, nil
 }
 
+func (d *DB) DeleteClient(id string) error {
+	if d == nil || d.sql == nil {
+		return fmt.Errorf("db is nil")
+	}
+	_, err := d.sql.Exec(`DELETE FROM clients WHERE id = ?`, strings.TrimSpace(id))
+	return err
+}
+
 func (d *DB) SearchClients(query string) ([]models.Client, error) {
 	if d == nil || d.sql == nil {
 		return nil, fmt.Errorf("db is nil")

@@ -63,11 +63,19 @@ async function getApiKey(): Promise<string> {
 
 export async function getSelectedModel(): Promise<string> {
   const a = api();
-  if (!a) return 'google/gemini-flash-1.5';
+  if (!a) throw new Error('Backend недоступен. Запускайте приложение через Wails.');
   try {
-    return (await a.GetSetting('ai_model')) || 'google/gemini-flash-1.5';
+    const selected = ((await a.GetSetting('ai_model')) || '').trim();
+    if (selected) return selected;
+
+    const rawModels = await a.GetSetting('ai_models');
+    const list = JSON.parse(rawModels || '[]') as Array<{ id?: string }>;
+    const firstId = (list.find((m) => String(m?.id || '').trim() !== '')?.id || '').trim();
+    if (firstId) return firstId;
+
+    throw new Error('AI модель не выбрана. Укажите модель в Настройках.');
   } catch {
-    return 'google/gemini-flash-1.5';
+    throw new Error('AI модель не выбрана. Укажите модель в Настройках.');
   }
 }
 

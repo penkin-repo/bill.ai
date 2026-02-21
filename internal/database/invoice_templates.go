@@ -96,6 +96,52 @@ func (d *DB) RemoveMyCompanyInvoiceTemplate(companyID, templateID string) error 
 	return err
 }
 
+func (d *DB) RemoveMyCompanyTemplateBindings(companyID string) error {
+	if d == nil || d.sql == nil {
+		return fmt.Errorf("db is nil")
+	}
+	companyID = strings.TrimSpace(companyID)
+	if companyID == "" {
+		return nil
+	}
+	_, err := d.sql.Exec(`DELETE FROM my_company_invoice_templates WHERE my_company_id = ?`, companyID)
+	return err
+}
+
+func (d *DB) RemoveClientTemplateBindings(clientID string) error {
+	if d == nil || d.sql == nil {
+		return fmt.Errorf("db is nil")
+	}
+	clientID = strings.TrimSpace(clientID)
+	if clientID == "" {
+		return nil
+	}
+	_, err := d.sql.Exec(`DELETE FROM client_invoice_templates WHERE client_id = ?`, clientID)
+	return err
+}
+
+func (d *DB) ClearTemplateBindings() error {
+	if d == nil || d.sql == nil {
+		return fmt.Errorf("db is nil")
+	}
+	tx, err := d.sql.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	if _, err := tx.Exec(`DELETE FROM client_invoice_templates`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM my_company_invoice_templates`); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 func (d *DB) EnsureMyCompanyTemplateBootstrap(companyID string) error {
 	if d == nil || d.sql == nil {
 		return fmt.Errorf("db is nil")
