@@ -199,7 +199,17 @@ export function InvoicesRegistryPage() {
     list.sort((a, b) => {
       let cmp = 0;
       if (sortField === 'date') cmp = (a.date || '').localeCompare(b.date || '');
-      else if (sortField === 'number') cmp = (a.number || '').localeCompare(b.number || '');
+      else if (sortField === 'number') {
+        const aNum = Number.parseInt(String(a.number || '').trim(), 10);
+        const bNum = Number.parseInt(String(b.number || '').trim(), 10);
+        const aIsNum = Number.isFinite(aNum);
+        const bIsNum = Number.isFinite(bNum);
+        if (aIsNum && bIsNum) {
+          cmp = aNum - bNum;
+        } else {
+          cmp = String(a.number || '').localeCompare(String(b.number || ''), 'ru', { numeric: true, sensitivity: 'base' });
+        }
+      }
       else if (sortField === 'total') cmp = (a.total || 0) - (b.total || 0);
       return sortDir === 'desc' ? -cmp : cmp;
     });

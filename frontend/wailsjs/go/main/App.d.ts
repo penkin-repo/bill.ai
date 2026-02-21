@@ -42,6 +42,8 @@ export function GetNextInvoiceNumber(arg1:string):Promise<string>;
 
 export function GetSetting(arg1:string):Promise<string>;
 
+export function ImportProductsFromCSV(arg1:string):Promise<void>;
+
 export function ImportProductsFromJSON(arg1:string):Promise<void>;
 
 export function RemoveMyCompanyInvoiceTemplate(arg1:string,arg2:string):Promise<void>;

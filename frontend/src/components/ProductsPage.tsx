@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
-import { Package, Plus, Pencil, Trash2, RotateCcw, Search, X } from 'lucide-react';
+import { Package, Plus, Pencil, Trash2, Search, X, Upload, Circle } from 'lucide-react';
 import { formatMoney } from '../utils/num2words';
 
 function api() {
@@ -21,6 +21,7 @@ const emptyForm: EditForm = { id: '', name: '', category: '', unit: 'м²', pric
 export function ProductsPage() {
   const { products, refreshData } = useApp();
   const { pushToast } = useToast();
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const [search, setSearch] = useState('');
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState<EditForm>(emptyForm);
@@ -97,16 +98,40 @@ export function ProductsPage() {
     }
   }
 
-  async function handleReset() {
-    if (!confirm('Загрузить товары из Products.json рядом с exe? Все ручные изменения будут потеряны.')) return;
+  function parseDisplayMeta(p: (typeof products)[number]) {
+    const mainName = p.name.split(', коллекция:')[0] || p.name;
+    const collection = (p.category || '').trim();
+    const color = (p.description || '').trim();
+    return {
+      mainName: mainName.trim(),
+      collection: collection || '—',
+      color: color || '—',
+    };
+  }
+
+  function pickColorDotClass(color: string) {
+    const c = color.toLowerCase();
+    if (c.includes('красн')) return 'text-red-500';
+    if (c.includes('бел')) return 'text-slate-300';
+    if (c.includes('чер') || c.includes('антрацит')) return 'text-slate-700';
+    if (c.includes('сер')) return 'text-slate-400';
+    if (c.includes('янтар') || c.includes('песч') || c.includes('клинк')) return 'text-amber-500';
+    if (c.includes('корич')) return 'text-amber-800';
+    return 'text-slate-300';
+  }
+
+  async function handleImportBase(file: File) {
+    if (!confirm('Загрузить базу товаров из CSV? Текущий справочник будет полностью заменен.')) return;
     setBusy(true);
     try {
       const a = api();
       if (!a) return;
-      await a.ResetProductsToFactory();
+      const csvText = await file.text();
+      await a.ImportProductsFromCSV(csvText);
       await refreshData();
+      pushToast('База товаров загружена из CSV.', 'success');
     } catch (e: any) {
-      pushToast('Ошибка сброса: ' + (e?.message || ''), 'error');
+      pushToast('Ошибка загрузки базы: ' + (e?.message || ''), 'error');
     } finally {
       setBusy(false);
     }
@@ -121,9 +146,22 @@ export function ProductsPage() {
           <p className="text-sm text-slate-500 mt-1">{products.length} товаров в справочнике</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={handleReset} disabled={busy}
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                void handleImportBase(file);
+              }
+              e.target.value = '';
+            }}
+          />
+          <button onClick={() => importInputRef.current?.click()} disabled={busy}
             className="flex items-center gap-2 text-slate-600 px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors text-sm disabled:opacity-50">
-            <RotateCcw className="w-4 h-4" /> Сброс к заводским
+            <Upload className="w-4 h-4" /> {busy ? 'Загрузка...' : 'Загрузить базу'}
           </button>
           <button onClick={openAdd}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
@@ -154,9 +192,9 @@ export function ProductsPage() {
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
           <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
           <p className="text-slate-500 mb-2">Нет товаров</p>
-          <p className="text-xs text-slate-400 mb-4">Добавьте товар или загрузите каталог из Products.json рядом с exe</p>
-          <button onClick={handleReset} disabled={busy} className="inline-flex items-center gap-2 bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 text-sm">
-            <RotateCcw className="w-4 h-4" /> Загрузить из каталога
+          <p className="text-xs text-slate-400 mb-4">Добавьте товар вручную или загрузите каталог из CSV</p>
+          <button onClick={() => importInputRef.current?.click()} disabled={busy} className="inline-flex items-center gap-2 bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 text-sm">
+            <Upload className="w-4 h-4" /> Загрузить базу
           </button>
         </div>
       ) : (
@@ -165,23 +203,39 @@ export function ProductsPage() {
             <thead>
               <tr className="bg-slate-50 text-left text-xs font-medium text-slate-500 uppercase">
                 <th className="px-4 py-3">Название</th>
-                <th className="px-4 py-3">Категория</th>
-                <th className="px-4 py-3 w-20">Ед.</th>
+                <th className="px-4 py-3">Коллекция</th>
+                <th className="px-4 py-3">Цвет</th>
+                <th className="px-4 py-3 w-24">Ед. изм.</th>
                 <th className="px-4 py-3 text-right w-32">Цена</th>
                 <th className="px-4 py-3 w-24"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filtered.length === 0 ? (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Ничего не найдено</td></tr>
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Ничего не найдено</td></tr>
               ) : filtered.map(product => (
                 <tr key={product.id} className="hover:bg-slate-50 transition-colors group">
-                  <td className="px-4 py-3 font-medium text-slate-800 text-sm">{product.name}</td>
-                  <td className="px-4 py-3 text-sm text-slate-600">
-                    {product.category ? <span className="px-2 py-0.5 bg-slate-100 rounded text-xs">{product.category}</span> : '—'}
+                  <td className="px-4 py-3 text-sm">
+                    <p className="font-semibold text-slate-800">{parseDisplayMeta(product).mainName}</p>
+                    <p className="text-slate-500">коллекция: {parseDisplayMeta(product).collection}, цвет: {parseDisplayMeta(product).color}</p>
+                    <p className="text-xs italic text-slate-400">(производство «Выбор»)</p>
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-600">{product.unit}</td>
-                  <td className="px-4 py-3 text-sm text-slate-800 text-right font-mono">{formatMoney(product.price)} ₽</td>
+                  <td className="px-4 py-3 text-sm text-slate-700">
+                    <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 font-medium text-xs">
+                      {parseDisplayMeta(product).collection}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-slate-700">
+                    <span className="inline-flex items-center gap-2">
+                      <Circle className={`w-2.5 h-2.5 fill-current ${pickColorDotClass(parseDisplayMeta(product).color)}`} />
+                      {parseDisplayMeta(product).color}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-slate-600 uppercase">{product.unit}</td>
+                  <td className="px-4 py-3 text-right">
+                    <p className="text-3xl font-semibold leading-none text-slate-900">{Math.round(product.price)}</p>
+                    <p className="text-xs text-slate-400 mt-1">за {product.unit}</p>
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => openEdit(product)} title="Редактировать"

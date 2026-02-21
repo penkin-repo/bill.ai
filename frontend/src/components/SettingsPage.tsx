@@ -260,6 +260,57 @@ export function SettingsPage() {
         {saved && <p className="mt-2 text-sm text-green-600 flex items-center gap-1 animate-fade-in"><CheckCircle className="w-4 h-4" /> Ключ сохранён!</p>}
       </div>
 
+      {/* Excel custom placeholders */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-4">
+        <div className="mb-3">
+          <h3 className="font-semibold text-slate-700">Шаблоны для заполнения Excel</h3>
+        </div>
+
+        <details className="group rounded-lg border border-slate-200 bg-slate-50/50" open>
+          <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-slate-700 flex items-center justify-between">
+            Полный список плейсхолдеров
+            <span className="text-xs text-slate-500 group-open:hidden">Показать</span>
+            <span className="text-xs text-slate-500 hidden group-open:inline">Скрыть</span>
+          </summary>
+          <div className="overflow-x-auto border-t border-slate-200 bg-white rounded-b-lg">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="text-left px-3 py-2 border-b border-slate-200 font-semibold text-slate-600">Плейсхолдер</th>
+                  <th className="text-left px-3 py-2 border-b border-slate-200 font-semibold text-slate-600">Пример значения</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{invoice_number}}'}</td><td className="px-3 py-2">3</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{invoice_date}}'}</td><td className="px-3 py-2">19 февраля 2026 г.</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{invoice_date_iso}}'}</td><td className="px-3 py-2">2026-02-19</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{supplier_name}}'}</td><td className="px-3 py-2">ИП Булкин Василий Петрович</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{supplier_inn}}'}</td><td className="px-3 py-2">2906565666</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{supplier_kpp}}'}</td><td className="px-3 py-2">``</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{supplier_address}}'}</td><td className="px-3 py-2">...</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{buyer_name}}'}</td><td className="px-3 py-2">Иванов Иван Иванович</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{buyer_inn}}'}</td><td className="px-3 py-2">656565</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{buyer_address}}'}</td><td className="px-3 py-2">...</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{buyer_phone}}'}</td><td className="px-3 py-2">...</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{total_subtotal}}'}</td><td className="px-3 py-2">2 850,00</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{total_vat}}'}</td><td className="px-3 py-2">0,00</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{total_with_vat}}'}</td><td className="px-3 py-2">2 850,00</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{items_count}}'}</td><td className="px-3 py-2">1</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{items_count_words}} / {{items_count_text}}'}</td><td className="px-3 py-2">1 наименование</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{total_words}}'}</td><td className="px-3 py-2">Две тысячи восемьсот пятьдесят рублей...</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{comment}}'}</td><td className="px-3 py-2">...</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{row_no}}'}</td><td className="px-3 py-2">1 (в строке товара)</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{item_name}}'}</td><td className="px-3 py-2">Тротуарная плита...</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{item_qty}}'}</td><td className="px-3 py-2">1,00</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{item_unit}}'}</td><td className="px-3 py-2">м²</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{item_price}}'}</td><td className="px-3 py-2">2 850,00</td></tr>
+                <tr><td className="px-3 py-2 font-mono text-xs">{'{{item_amount}}'}</td><td className="px-3 py-2">2 850,00</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+
       {/* AI Model */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-4">
         <div className="flex items-center justify-between mb-3">

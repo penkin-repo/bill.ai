@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -417,7 +418,12 @@ func (a *App) SaveInvoiceFile(name string, data []byte) (string, error) {
 }
 
 func (a *App) GenerateInvoice(inv models.Invoice, company models.MyCompany, client models.Client, templatePath string, openAfterSave bool) (string, error) {
-	bytes, fileName, err := excel.GenerateInvoiceXLSX(inv, company, client, templatePath)
+	custom := map[string]string{}
+	if raw, err := a.db.GetSetting("excel_custom_fields"); err == nil {
+		_ = json.Unmarshal([]byte(raw), &custom)
+	}
+
+	bytes, fileName, err := excel.GenerateInvoiceXLSX(inv, company, client, templatePath, custom)
 	if err != nil {
 		return "", err
 	}
@@ -610,6 +616,10 @@ func (a *App) ResetProductsToFactory() error {
 
 func (a *App) ImportProductsFromJSON(jsonData string) error {
 	return a.db.SeedProductsFromJSON(jsonData)
+}
+
+func (a *App) ImportProductsFromCSV(csvText string) error {
+	return a.db.SeedProductsFromCSV(csvText)
 }
 
 func (a *App) SyncAll() ([]models.SyncResult, error) {

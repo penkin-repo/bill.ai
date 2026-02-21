@@ -23,7 +23,7 @@ type itemCols struct {
 	Amount int
 }
 
-func GenerateInvoiceXLSX(inv models.Invoice, company models.MyCompany, client models.Client, templatePath string) ([]byte, string, error) {
+func GenerateInvoiceXLSX(inv models.Invoice, company models.MyCompany, client models.Client, templatePath string, custom map[string]string) ([]byte, string, error) {
 	tpl, err := resolveTemplatePath(templatePath)
 	if err != nil {
 		return nil, "", err
@@ -127,6 +127,13 @@ func GenerateInvoiceXLSX(inv models.Invoice, company models.MyCompany, client mo
 		"items_count_text":  itemsCountWords(len(items)),
 		"total_words":       inv.TotalWords,
 		"comment":           inv.Comment,
+	}
+	for k, v := range custom {
+		key := strings.TrimSpace(k)
+		if key == "" {
+			continue
+		}
+		commonMap[key] = strings.TrimSpace(v)
 	}
 
 	rows, _ := f.GetRows(sheet)

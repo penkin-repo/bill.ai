@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { parseVoiceCommand, getCurrentModelName, aiPickProductIdFromList } from '../services/aiService';
@@ -10,6 +10,7 @@ import {
   GetMyCompanyInvoiceTemplates,
   GetNextInvoiceNumber,
   SearchClients,
+  SearchInvoices,
   SearchProducts,
   UpsertInvoice,
 } from '../services/wailsApp';
@@ -20,7 +21,7 @@ import { InvoiceTotalsSummary } from './invoice/InvoiceTotalsSummary';
 import { models } from '../../wailsjs/go/models';
 import {
   Plus, Trash2, FileText, Search, X, Sparkles,
-  CheckSquare, Square, ChevronDown, Send, Cpu, Mic, MicOff, Loader2,
+  CheckSquare, ChevronDown, Send, Cpu, Mic, MicOff, Loader2, List, Eraser, Download,
 } from 'lucide-react';
 
 type InvoiceRow = {
@@ -69,7 +70,7 @@ export function InvoicePage() {
   const [vatMode, setVatMode] = useState<'none' | 'included' | 'on_top'>('none');
   const [companyTemplates, setCompanyTemplates] = useState<CompanyInvoiceTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
-  const [alsoDownloadPdf, setAlsoDownloadPdf] = useState(false);
+  const [showClientsList, setShowClientsList] = useState(false);
   const [comment, setComment] = useState('');
 
   const nextRowIdRef = useRef(1);
@@ -89,6 +90,7 @@ export function InvoicePage() {
   const [clientResults, setClientResults] = useState<models.Client[]>([]);
   const [showClientDropdown, setShowClientDropdown] = useState(false);
   const clientSearchRef = useRef<HTMLDivElement>(null);
+  const [clientListSearch, setClientListSearch] = useState('');
 
   // Product search per row
   const [activeProductRow, setActiveProductRow] = useState<string | null>(null);
@@ -97,8 +99,13 @@ export function InvoicePage() {
   // Success message
   const [successMsg, setSuccessMsg] = useState('');
   const [savingInvoice, setSavingInvoice] = useState(false);
+  const draftReadyRef = useRef(false);
+  const [draftHydrated, setDraftHydrated] = useState(false);
+
+  const draftStorageKey = 'invoice_page_draft_v1';
 
   useEffect(() => {
+    if (!draftHydrated) return;
     if (invoiceNumberManual) return;
     if (!selectedCompanyId) {
       setInvoiceNumber('');
@@ -115,13 +122,99 @@ export function InvoicePage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedCompanyId, invoiceNumberManual]);
+  }, [draftHydrated, selectedCompanyId, invoiceNumberManual]);
 
   useEffect(() => {
     if (companies.length > 0 && !selectedCompanyId) {
       setSelectedCompanyId(companies[0].id);
     }
   }, [companies, selectedCompanyId]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(draftStorageKey);
+      if (!raw) {
+        draftReadyRef.current = true;
+        setDraftHydrated(true);
+        return;
+      }
+      const draft = JSON.parse(raw || '{}');
+      const draftInvoiceNumber = typeof draft.invoiceNumber === 'string' ? draft.invoiceNumber.trim() : '';
+      if (draftInvoiceNumber) {
+        setInvoiceNumber(draftInvoiceNumber);
+      }
+      if (draft.invoiceNumberManual === true && draftInvoiceNumber) {
+        setInvoiceNumberManual(true);
+      }
+      if (typeof draft.invoiceDate === 'string' && draft.invoiceDate) setInvoiceDate(draft.invoiceDate);
+      if (typeof draft.selectedCompanyId === 'string') setSelectedCompanyId(draft.selectedCompanyId);
+      if (typeof draft.selectedClientId === 'string') setSelectedClientId(draft.selectedClientId);
+      if (typeof draft.clientSearch === 'string') setClientSearch(draft.clientSearch);
+      if (draft.vatMode === 'none' || draft.vatMode === 'included' || draft.vatMode === 'on_top') setVatMode(draft.vatMode);
+      if (typeof draft.comment === 'string') setComment(draft.comment);
+      if (typeof draft.selectedTemplateId === 'string') setSelectedTemplateId(draft.selectedTemplateId);
+      if (Array.isArray(draft.rows) && draft.rows.length > 0) {
+        const restored = draft.rows
+          .filter((r: any) => r && typeof r._id === 'string')
+          .map((r: any): InvoiceRow => ({
+            _id: r._id,
+            product_id: typeof r.product_id === 'string' ? r.product_id : '',
+            name: typeof r.name === 'string' ? r.name : '',
+            unit: typeof r.unit === 'string' && r.unit ? r.unit : 'шт',
+            quantity: typeof r.quantity === 'number' ? r.quantity : 1,
+            price: typeof r.price === 'number' ? r.price : 0,
+            amount: typeof r.amount === 'number' ? r.amount : 0,
+          }));
+        if (restored.length > 0) {
+          setRows(restored);
+          const maxId = restored.reduce((acc: number, r: InvoiceRow) => {
+            const n = Number.parseInt(r._id, 10);
+            return Number.isNaN(n) ? acc : Math.max(acc, n);
+          }, 0);
+          nextRowIdRef.current = Math.max(maxId + 1, 1);
+        }
+      }
+    } catch {
+      // ignore corrupted draft
+    } finally {
+      draftReadyRef.current = true;
+      setDraftHydrated(true);
+    }
+  }, []);
+
+  const persistDraft = useCallback(() => {
+    if (!draftHydrated || !draftReadyRef.current) return;
+    const draft = {
+      invoiceNumber,
+      invoiceNumberManual,
+      invoiceDate,
+      selectedCompanyId,
+      selectedClientId,
+      clientSearch,
+      vatMode,
+      selectedTemplateId,
+      comment,
+      rows,
+    };
+    localStorage.setItem(draftStorageKey, JSON.stringify(draft));
+  }, [draftHydrated, invoiceNumber, invoiceNumberManual, invoiceDate, selectedCompanyId, selectedClientId, clientSearch, vatMode, selectedTemplateId, comment, rows]);
+
+  useEffect(() => {
+    persistDraft();
+  }, [persistDraft]);
+
+  useEffect(() => {
+    const flushDraft = () => {
+      persistDraft();
+    };
+    window.addEventListener('beforeunload', flushDraft);
+    window.addEventListener('pagehide', flushDraft);
+    return () => {
+      flushDraft();
+      window.removeEventListener('beforeunload', flushDraft);
+      window.removeEventListener('pagehide', flushDraft);
+    };
+  }, [persistDraft]);
 
   useEffect(() => {
     let cancelled = false;
@@ -432,7 +525,22 @@ export function InvoicePage() {
   const { vatAmount, total } = calcTotalsBySubtotal(subtotal, vatMode);
   const totalWords = numberToWords(total);
 
-  async function handleFinalize() {
+  function clearForm() {
+    localStorage.removeItem(draftStorageKey);
+    setInvoiceNumberManual(false);
+    setSelectedClientId('');
+    setClientSearch('');
+    setComment('');
+    setAiCommand('');
+    setAiSuccess('');
+    setAiError('');
+    setShowClientsList(false);
+    setClientListSearch('');
+    nextRowIdRef.current = 1;
+    setRows([{ _id: '0', name: '', unit: 'шт', quantity: 1, price: 0, amount: 0 }]);
+  }
+
+  async function handleFinalize(saveMode: 'excel' | 'pdf' | 'both') {
     if (savingInvoice) return;
     if (!selectedClientId || !selectedCompanyId) {
       pushToast('Выберите клиента и компанию', 'error');
@@ -445,6 +553,17 @@ export function InvoicePage() {
     if (rows.every(r => !r.name.trim())) {
       pushToast('Добавьте хотя бы один товар', 'error');
       return;
+    }
+
+    try {
+      const existsRows = await SearchInvoices(JSON.stringify({ number: invoiceNumber.trim() }), 10, 0);
+      const duplicate = (existsRows || []).some((x) => (x.id || '').trim() === invoiceNumber.trim());
+      if (duplicate) {
+        pushToast(`Счёт №${invoiceNumber.trim()} уже существует. Выберите другой номер.`, 'error');
+        return;
+      }
+    } catch {
+      // ignore pre-check failure; backend save flow will still run
     }
 
     const selectedClient = clients.find(c => c.id === selectedClientId);
@@ -498,7 +617,7 @@ export function InvoicePage() {
       const templatePath = selectedTemplate.file_path;
       const savedXlsxPath = await GenerateInvoice(inv, selectedCompany, selectedClient, templatePath, false);
 
-      if (alsoDownloadPdf && savedXlsxPath) {
+      if ((saveMode === 'pdf' || saveMode === 'both') && savedXlsxPath) {
         await ConvertXlsxToPDF(savedXlsxPath);
       }
 
@@ -511,14 +630,7 @@ export function InvoicePage() {
       }
       setInvoiceNumberManual(false);
 
-      setSelectedClientId('');
-      setClientSearch('');
-      nextRowIdRef.current = 1;
-      setRows([{ _id: '0', name: '', unit: 'шт', quantity: 1, price: 0, amount: 0 }]);
-      setComment('');
-      setAiCommand('');
-      setAiSuccess('');
-      setAiError('');
+      clearForm();
     } catch (e: any) {
       pushToast(e?.message ?? String(e), 'error');
     } finally {
@@ -534,14 +646,21 @@ export function InvoicePage() {
     on_top: 'НДС сверху (22%)',
   };
 
+  const clientsListFiltered = useMemo(() => {
+    const q = (clientListSearch || '').trim().toLowerCase();
+    if (!q) return clients;
+    return clients.filter((c) => {
+      const hay = `${c.name} ${c.inn || ''} ${c.kpp || ''}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [clients, clientListSearch]);
+
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <InvoiceActionBar
         successMsg={successMsg}
         onDismissSuccess={() => setSuccessMsg('')}
         onOpenRegistry={() => setActiveTab('registry')}
-        onSave={handleFinalize}
-        savingInvoice={savingInvoice}
       />
 
       {/* AI Command Center */}
@@ -615,6 +734,45 @@ export function InvoicePage() {
         )}
       </div>
 
+      {showClientsList && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-2xl max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200">
+              <h3 className="text-sm font-semibold text-slate-700">Список клиентов</h3>
+              <button onClick={() => setShowClientsList(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 border-b border-slate-100">
+              <input
+                type="text"
+                value={clientListSearch}
+                onChange={(e) => setClientListSearch(e.target.value)}
+                placeholder="Поиск по названию или ИНН..."
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div className="max-h-[50vh] overflow-y-auto divide-y divide-slate-100">
+              {clientsListFiltered.length === 0 ? (
+                <p className="p-4 text-sm text-slate-400">Ничего не найдено</p>
+              ) : clientsListFiltered.map((client) => (
+                <button
+                  key={client.id}
+                  onClick={() => {
+                    selectClient(client);
+                    setShowClientsList(false);
+                  }}
+                  className="w-full text-left px-4 py-3 hover:bg-blue-50"
+                >
+                  <p className="text-sm font-medium text-slate-800">{client.name}</p>
+                  <p className="text-xs text-slate-500">ИНН: {client.inn || '—'}{client.kpp ? ` · КПП: ${client.kpp}` : ''}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Invoice Header */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-4 min-w-[800px]">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -657,8 +815,14 @@ export function InvoicePage() {
                 <X className="w-3 h-3" /> Сбросить
               </button>
             )}
-            <button onClick={() => setActiveTab('clients')} className="text-xs text-blue-600 hover:underline">
-              Все клиенты →
+            <button
+              onClick={() => {
+                setClientListSearch(clientSearch);
+                setShowClientsList(true);
+              }}
+              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+            >
+              <List className="w-3 h-3" /> СПИСОК
             </button>
           </div>
         </div>
@@ -834,12 +998,7 @@ export function InvoicePage() {
               />
             </div>
 
-            <div className="flex items-center gap-2">
-              <button onClick={() => setAlsoDownloadPdf(!alsoDownloadPdf)} className="text-slate-500">
-                {alsoDownloadPdf ? <CheckSquare className="w-5 h-5 text-blue-600" /> : <Square className="w-5 h-5" />}
-              </button>
-              <span className="text-sm text-slate-600">Также скачать в PDF</span>
-            </div>
+            <div className="text-xs text-slate-400">Выберите формат сохранения в нижней панели.</div>
           </div>
 
           <InvoiceTotalsSummary
@@ -911,6 +1070,41 @@ export function InvoicePage() {
           </div>
         </div>
       )}
+
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 px-4 py-3 mt-4 mb-4">
+        <div className="flex flex-wrap gap-2 justify-between items-center">
+          <button
+            onClick={clearForm}
+            disabled={savingInvoice}
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+          >
+            <Eraser className="w-4 h-4" /> Очистить форму
+          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => { void handleFinalize('excel'); }}
+              disabled={savingInvoice}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
+            >
+              <Download className="w-4 h-4" /> Сохранить Excel
+            </button>
+            <button
+              onClick={() => { void handleFinalize('pdf'); }}
+              disabled={savingInvoice}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+            >
+              <FileText className="w-4 h-4" /> Сохранить PDF
+            </button>
+            <button
+              onClick={() => { void handleFinalize('both'); }}
+              disabled={savingInvoice}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
+            >
+              <CheckSquare className="w-4 h-4" /> Excel + PDF
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

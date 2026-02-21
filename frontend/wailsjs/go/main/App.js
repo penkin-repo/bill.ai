@@ -82,6 +82,10 @@ export function GetSetting(arg1) {
   return window['go']['main']['App']['GetSetting'](arg1);
 }
 
+export function ImportProductsFromCSV(arg1) {
+  return window['go']['main']['App']['ImportProductsFromCSV'](arg1);
+}
+
 export function ImportProductsFromJSON(arg1) {
   return window['go']['main']['App']['ImportProductsFromJSON'](arg1);
 }

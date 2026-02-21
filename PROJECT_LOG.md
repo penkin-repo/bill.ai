@@ -1,12 +1,12 @@
 
 # Project Status: bill.ai
 
-**Last Updated:** 2026-02-20 15:34 (UTC+03:00)
+**Last Updated:** 2026-02-22 01:10 (UTC+03:00)
 **Current Phase:** Phase 5 — Local-first синхронизация + AI улучшения
 
 ## 🚀 Active Context
-* **Current Task:** Добавлены удаление компании в разделе "Мои компании" и фикс FK-падения при ручной загрузке из Google (Clients/MyCompanies)
-* **Next Step:** По желанию — добавить дружелюбную подсказку, если удаление клиента/компании блокируется связанными счетами (вместо raw SQL ошибки)
+* **Current Task:** Hotfix по регрессии InvoicePage: восстановить авто-номер счёта и стабильное сохранение черновика при переходах между разделами
+* **Next Step:** Пользовательская проверка сценария: несколько товаров → переход в Настройки → возврат в Выставить счёт (данные и номер должны сохраниться)
 
 ## 🛠 Tech Stack & Versions
 * **Go:** Wails v2
@@ -190,18 +190,41 @@
 * [2026-02-20] FK fix (force download): `SyncService.ForceDownloadFromGoogle` теперь сначала очищает зависимые таблицы (`invoices` + template bindings), и только потом `clients/my_companies` — устранена ошибка `clear local clients: FOREIGN KEY constraint failed (787)`
 * [2026-02-20] FK fix (bindings): добавлены методы `ClearTemplateBindings`, `RemoveMyCompanyTemplateBindings`, `RemoveClientTemplateBindings` для безопасной очистки/удаления связей
 * [2026-02-20] Проверка после companies-delete+fk-fix-шага: `go build ./...` (OK), `pnpm --dir frontend build` (OK)
+* [2026-02-21] Products import: в `internal/database/seed.go` реализован парсер CSV по `Products/instruction.md` (parents/children, extraction коллекции/цвета, unit detection, формирование красивого full-title для Excel)
+* [2026-02-21] Products UI: в `ProductsPage` кнопка `Сброс к заводским` заменена на `Загрузить базу` (выбор `.csv` + `ImportProductsFromCSV`) и обновлён табличный вывод в стиле каталога (Название/Коллекция/Цвет/Ед./Цена)
+* [2026-02-21] Invoice UX: в `InvoicePage` добавлены черновик формы (localStorage), кнопка `СПИСОК` с модальным выбором клиента без выхода со страницы, кнопка `Очистить форму`, и нижняя sticky-панель с 3 действиями сохранения (Excel / PDF / Excel+PDF)
+* [2026-02-21] Invoice header: в `invoice/InvoiceActionBar.tsx` удалена верхняя кнопка `Сохранить счёт`; сохранение перенесено в нижнюю sticky-панель
+* [2026-02-21] Settings/Excel placeholders: в `SettingsPage` добавлен блок пользовательских полей шаблона (`supplier_phone`, `supplier_email`, `supplier_site`, `manager_name`) с сохранением в setting `excel_custom_fields`
+* [2026-02-21] Backend Excel: `app.go` теперь прокидывает `excel_custom_fields` в `internal/excel/GenerateInvoiceXLSX(...)`, где добавлена поддержка custom map плейсхолдеров
+* [2026-02-21] Проверка после CSV+invoice+settings-шага: `go build ./...` (OK), `pnpm --dir frontend build` (OK)
+* [2026-02-22] InvoicePage: нижняя панель действий (Очистить/Excel/PDF/Excel+PDF) сделана обычным блоком после `Предпросмотр` (не fixed-overlay)
+* [2026-02-22] InvoicePage draft/autonumber: сохранение черновика стабилизировано (`draftReadyRef`, сохранение `invoiceNumberManual`), авто-подстановка следующего номера снова работает при возврате на вкладку/повторном выборе компании
+* [2026-02-22] InvoicePage duplicate guard: перед сохранением добавлена проверка через `SearchInvoices({number})` — при существующем № счёта выводится ошибка и запись не перезаписывается
+* [2026-02-22] SettingsPage: блок с редактируемыми excel-подсказками заменён на статическую таблицу «Шаблоны для заполнения Excel» (placeholder → пример)
+* [2026-02-22] CSV parser: в `internal/database/seed.go` добавлена нормализация кода по толщине 60/80 мм (`Б.1.Фсм.6/8` → `Б.1.Фсм.6` / `Б.1.Фсм.8`)
+* [2026-02-22] InvoicesRegistryPage: сортировка по номеру переведена на числовую (с fallback на localeCompare для нечисловых значений)
+* [2026-02-22] Проверка после доработок по замечаниям: `go build ./...` (OK), `pnpm --dir frontend build` (OK)
+* [2026-02-22] InvoicePage draft: сохранение черновика вынесено в `persistDraft` + добавлен flush на `beforeunload/pagehide` и при unmount, чтобы данные формы не терялись при переключении разделов
+* [2026-02-22] SettingsPage: таблица плейсхолдеров свёрнута в раскрывающийся блок (`details/summary`), список дополнен до полного набора, `buyer_name` заменён на «Иванов Иван Иванович»
+* [2026-02-22] CSV parser/title format: для плитки формат сокращён до `..., / Коллекция / Цвет`; для бордюров добавлены спец-правила имени (`Бордюр <размер> / <цвет>`) и принудительная единица `шт.`
+* [2026-02-22] CSV parser/curb size: добавлено извлечение размера бордюра из кода (`100.20.8`) и текста (`1000х200х80 мм`) с нормализацией к виду `1000х200х80 мм`
+* [2026-02-22] Проверка после draft+csv+settings-шага: `go build ./...` (OK), `pnpm --dir frontend build` (OK)
+* [2026-02-22] InvoicePage regression hotfix: добавлен флаг `draftHydrated`; автонумерация запускается только после гидрации draft и не блокируется пустым manual-flag
+* [2026-02-22] InvoicePage draft restore: `invoiceNumberManual` восстанавливается только если в draft есть непустой `invoiceNumber` (устранён кейс «manual=true, номер пустой»)
+* [2026-02-22] InvoicePage draft persist: сохранение в localStorage теперь защищено условием `draftHydrated && draftReadyRef.current`, чтобы начальное пустое состояние не перетирало восстановленные строки
+* [2026-02-22] Проверка после invoice-regression-hotfix: `go build ./...` (OK), `pnpm --dir frontend build` (OK)
 
 ## 📂 Key Files Map
 * `app.go` — Wails App: startup, loadProductsJSON (portable→embedded fallback), все exposed методы
 * `frontend/src/components/Sidebar.tsx` — Sidebar (Bill.ai) + секции меню + last sync
 * `frontend/src/components/InvoicePage.tsx` — Выставление счёта: двухстрочный layout товаров, поиск через backend
-* `frontend/src/components/ProductsPage.tsx` — Каталог товаров: таблица, поиск (AND), CRUD, сброс к заводским
+* `frontend/src/components/ProductsPage.tsx` — Каталог товаров: таблица, поиск, CSV-импорт базы, rich-отображение (коллекция/цвет/ед./цена)
 * `frontend/src/context/AppContext.tsx` — глобальный state справочников (clients/products/companies/settings) без полной загрузки invoices
 * `frontend/src/App.tsx` — routing по `activeTab`
 * `internal/database/database.go` — SQLite init/migrations + SeedTestData
 * `internal/database/products.go` — GetAllProducts/SearchProducts (Go-side Unicode filtering)
 * `internal/database/clients.go` — GetAllClients/SearchClients
-* `internal/database/seed.go` — SeedProductsFromJSON (JSON→плоский список→ReplaceProducts)
+* `internal/database/seed.go` — SeedProductsFromJSON + SeedProductsFromCSV (парсинг catalog CSV по parent/child логике)
 * `internal/database/upsert.go` — SQLite upsert methods
 * `internal/database/settings.go` — key-value настройки (SQLite)
 * `internal/database/sync_log.go` — лог синхронизаций
